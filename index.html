@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Image Encryption</title>
+</head>
+<body>
+    <input type="file" id="fileInput" />
+    <button id="decryptButton">Decrypt Image</button>
+    <script>
+        document.getElementById('fileInput').addEventListener('change', handleFileSelect, false);
+        document.getElementById('decryptButton').addEventListener('click', handleDecrypt, false);
+
+        let encryptionKey;
+        let encryptedImage;
+        let iv;
+
+        async function handleFileSelect(event) {
+            const file = event.target.files[0];
+            const reader = new FileReader();
+
+            reader.onload = async function(e) {
+                const arrayBuffer = e.target.result;
+                encryptionKey = await generateKey();
+                const encryptionResult = await encryptData(encryptionKey, arrayBuffer);
+                encryptedImage = encryptionResult.encryptedData;
+                iv = encryptionResult.iv;
+                console.log('Image encrypted.');
+            };
+
+            reader.readAsArrayBuffer(file);
+        }
+
+        async function handleDecrypt() {
+            if (encryptionKey && encryptedImage && iv) {
+                const decryptedArrayBuffer = await decryptData(encryptionKey, encryptedImage, iv);
+                const blob = arrayBufferToBlob(decryptedArrayBuffer, 'image/jpeg');
+                displayImage(blob);
+            } else {
+                alert('No encrypted image found.');
+            }
+        }
+
+        async function generateKey() {
+            const key = await crypto.subtle.generateKey(
+                {
+                    name: "AES-GCM",
+                    length: 256,
+                },
+                true, // extractable
+                ["encrypt", "decrypt"]
+            );
+            return key;
+        }
+
+        async function encryptData(key, data) {
+            const iv = crypto.getRandomValues(new Uint8Array(12)); // Initialization vector
+            const encryptedData = await crypto.subtle.encrypt(
+                {
+                    name: "AES-GCM",
+                    iv: iv,
+                },
+                key,
+                data
+            );
+            return { encryptedData, iv };
+        }
+
+        async function decryptData(key, encryptedData, iv) {
+            const decryptedData = await crypto.subtle.decrypt(
+                {
+                    name: "AES-GCM",
+                    iv: iv,
+                },
+                key,
+                encryptedData
+            );
+            return decryptedData;
+        }
+
+        function arrayBufferToBlob(arrayBuffer, type) {
+            return new Blob([arrayBuffer], { type: type });
+        }
+
+        function displayImage(blob) {
+            const url = URL.createObjectURL(blob);
+            const img = document.createElement('img');
+            img.src = url;
+            document.body.appendChild(img);
+        }
+    </script>
+</body>
+</html>
